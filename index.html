@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0f766e" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="mobile-web-app-capable" content="yes" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" type="image/svg+xml" href="icon-192.svg" />
+<link rel="apple-touch-icon" href="icon-192.svg" />
+<title>Mi Tienda — Ventas e Inventario</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  html, body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: contain; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  .safe-bottom { padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); }
+  .safe-top { padding-top: max(0.75rem, env(safe-area-inset-top)); }
+  .tab-active { color: #0f766e; }
+  .tab-active svg { stroke: #0f766e; }
+  .scroll-area { -webkit-overflow-scrolling: touch; }
+  /* Hide number input spinners on mobile */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  input[type="number"] { -moz-appearance: textfield; }
+  .modal-backdrop { backdrop-filter: blur(2px); }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .modal-sheet { animation: slideUp 0.2s ease-out; }
+  .product-photo { background: linear-gradient(135deg, #e0f2f1, #b2dfdb); }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary { list-style: none; cursor: pointer; }
+  .badge { display: inline-flex; align-items: center; padding: 0.125rem 0.5rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; }
+  .chip { display: inline-flex; align-items: center; padding: 0.25rem 0.625rem; border-radius: 9999px; font-size: 0.75rem; background: #f1f5f9; color: #334155; }
+  .chip-active { background: #0f766e; color: white; }
+  @media (max-width: 380px) { .text-responsive { font-size: 0.875rem; } }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen">
+
+<!-- ============================ LOGIN ============================ -->
+<div id="loginScreen" class="fixed inset-0 z-50 bg-gradient-to-br from-teal-600 to-emerald-700 flex flex-col items-center justify-center p-6 hidden">
+  <div class="w-full max-w-sm">
+    <div class="text-center mb-8">
+      <div class="inline-block bg-white/20 rounded-2xl p-4 mb-3">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+      </div>
+      <h1 class="text-3xl font-bold text-white">Mi Tienda</h1>
+      <p class="text-teal-100 text-sm mt-1">Ventas e inventario móvil</p>
+    </div>
+    <form id="loginForm" class="bg-white rounded-2xl shadow-xl p-6 space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Usuario</label>
+        <input type="text" id="loginUser" autocomplete="username" required class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 outline-none" placeholder="admin" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Contraseña</label>
+        <input type="password" id="loginPass" autocomplete="current-password" required class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 outline-none" placeholder="••••••••" />
+      </div>
+      <div id="loginError" class="hidden text-red-600 text-sm bg-red-50 p-2 rounded-lg"></div>
+      <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-semibold py-3 rounded-xl transition">Ingresar</button>
+      <p class="text-xs text-slate-500 text-center pt-2">Primer ingreso: <b>admin</b> / <b>admin123</b><br/>(cambia la contraseña inmediatamente)</p>
+    </form>
+  </div>
+</div>
+
+<!-- ============================ APP ============================ -->
+<div id="app" class="hidden">
+
+  <!-- TOP BAR -->
+  <header class="sticky top-0 z-30 bg-white border-b border-slate-200 safe-top">
+    <div class="px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <div class="w-9 h-9 bg-teal-600 rounded-xl flex items-center justify-center text-white">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+        </div>
+        <div>
+          <div id="topTitle" class="font-semibold text-slate-900 leading-tight">Dashboard</div>
+          <div class="text-xs text-slate-500" id="topUser">—</div>
+        </div>
+      </div>
+      <button id="btnMenu" class="p-2 rounded-lg hover:bg-slate-100" aria-label="Menú">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT AREA -->
+  <main id="mainContent" class="pb-24 scroll-area min-h-screen">
+
+    <!-- DASHBOARD -->
+    <section data-view="dashboard" class="view p-4 space-y-4">
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+          <div class="text-xs text-slate-500 uppercase tracking-wide">Ventas hoy</div>
+          <div class="text-2xl font-bold text-slate-900 mt-1" id="kpiVentasHoy">$0.00</div>
+          <div class="text-xs text-slate-400" id="kpiVentasHoyCount">0 ventas</div>
+        </div>
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+          <div class="text-xs text-slate-500 uppercase tracking-wide">Ganancia hoy</div>
+          <div class="text-2xl font-bold text-emerald-600 mt-1" id="kpiGananciaHoy">$0.00</div>
+          <div class="text-xs text-slate-400">Utilidad bruta</div>
+        </div>
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+          <div class="text-xs text-slate-500 uppercase tracking-wide">Ventas mes</div>
+          <div class="text-xl font-bold text-slate-900 mt-1" id="kpiVentasMes">$0.00</div>
+          <div class="text-xs text-slate-400" id="kpiVentasMesCount">0 ventas</div>
+        </div>
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+          <div class="text-xs text-slate-500 uppercase tracking-wide">Inventario</div>
+          <div class="text-xl font-bold text-slate-900 mt-1" id="kpiInventarioValor">$0.00</div>
+          <div class="text-xs text-slate-400" id="kpiInventarioCount">0 productos</div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="font-semibold text-slate-800">Ventas últimos 7 días</h3>
+        </div>
+        <div class="h-48"><canvas id="chartVentas7d"></canvas></div>
+      </div>
+
+      <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="font-semibold text-slate-800">Alertas de stock bajo</h3>
+          <span id="badgeStockBajo" class="badge bg-amber-100 text-amber-800">0</span>
+        </div>
+        <div id="listaStockBajo" class="space-y-2"></div>
+      </div>
+
+      <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+        <h3 class="font-semibold text-slate-800 mb-2">Top productos del mes</h3>
+        <div id="listaTopProductos" class="space-y-2"></div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <button onclick="showView('ventas'); abrirNuevaVenta();" class="bg-teal-600 hover:bg-teal-700 text-white py-4 rounded-2xl font-semibold flex items-center justify-center gap-2 shadow-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+          Nueva venta
+        </button>
+        <button onclick="showView('compras'); abrirNuevaCompra();" class="bg-white border-2 border-teal-600 text-teal-700 hover:bg-teal-50 py-4 rounded-2xl font-semibold flex items-center justify-center gap-2 shadow-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+          Nueva compra
+        </button>
+      </div>
+    </section>
+
+    <!-- CATÁLOGO -->
+    <section data-view="catalogo" class="view p-4 space-y-3 hidden">
+      <div class="flex items-center gap-2">
+        <div class="relative flex-1">
+          <input id="busquedaCatalogo" type="text" placeholder="Buscar producto o SKU..." class="w-full pl-10 pr-3 py-3 rounded-xl border border-slate-300 bg-white focus:border-teal-500 focus:ring-2 focus:ring-teal-200 outline-none" />
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        </div>
+        <button onclick="abrirEditorProducto()" class="bg-teal-600 hover:bg-teal-700 text-white p-3 rounded-xl shadow-sm" aria-label="Nuevo producto">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+        </button>
+      </div>
+      <div id="filtroCategorias" class="flex gap-2 overflow-x-auto pb-2"></div>
+      <div id="listaProductos" class="grid grid-cols-2 gap-3"></div>
+      <div id="vacioCatalogo" class="hidden text-center py-16 text-slate-500">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-2 opacity-50"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+        <p>Sin productos aún. Toca <b>+</b> para agregar el primero.</p>
+      </div>
+    </section>
+
+    <!-- INVENTARIO -->
+    <section data-view="inventario" class="view p-4 space-y-3 hidden">
+      <div class="grid grid-cols-3 gap-2">
+        <div class="bg-white rounded-xl p-3 border border-slate-100">
+          <div class="text-xs text-slate-500">Productos</div>
+          <div class="font-bold text-lg" id="invTotalProductos">0</div>
+        </div>
+        <div class="bg-white rounded-xl p-3 border border-slate-100">
+          <div class="text-xs text-slate-500">Unidades</div>
+          <div class="font-bold text-lg" id="invTotalUnidades">0</div>
+        </div>
+        <div class="bg-white rounded-xl p-3 border border-slate-100">
+          <div class="text-xs text-slate-500">Valor</div>
+          <div class="font-bold text-lg" id="invValorTotal">$0</div>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <input id="busquedaInventario" type="text" placeholder="Buscar..." class="flex-1 px-3 py-2 rounded-xl border border-slate-300 bg-white outline-none focus:border-teal-500" />
+        <select id="filtroEstadoInv" class="px-3 py-2 rounded-xl border border-slate-300 bg-white outline-none">
+          <option value="todos">Todos</option>
+          <option value="bajo">Stock bajo</option>
+          <option value="agotado">Agotados</option>
+          <option value="ok">En stock</option>
+        </select>
+      </div>
+      <div id="listaInventario" class="space-y-2"></div>
+    </section>
+
+    <!-- COMPRAS -->
+    <section data-view="compras" class="view p-4 space-y-3 hidden">
+      <button onclick="abrirNuevaCompra()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 shadow-sm">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+        Registrar nueva compra
+      </button>
+      <h3 class="font-semibold text-slate-700 mt-2">Compras recientes</h3>
+      <div id="listaCompras" class="space-y-2"></div>
+    </section>
+
+    <!-- VENTAS -->
+    <section data-view="ventas" class="view p-4 space-y-3 hidden">
+      <button onclick="abrirNuevaVenta()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 shadow-sm">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+        Nueva venta
+      </button>
+      <h3 class="font-semibold text-slate-700 mt-2">Ventas recientes</h3>
+      <div id="listaVentas" class="space-y-2"></div>
+    </section>
+
+    <!-- REPORTES -->
+    <section data-view="reportes" class="view p-4 space-y-3 hidden">
+      <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+        <h3 class="font-semibold mb-3">Rango</h3>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-xs text-slate-500">Desde</label>
+            <input type="date" id="repDesde" class="w-full px-3 py-2 rounded-lg border border-slate-300" />
+          </div>
+          <div>
+            <label class="text-xs text-slate-500">Hasta</label>
+            <input type="date" id="repHasta" class="w-full px-3 py-2 rounded-lg border border-slate-300" />
+          </div>
+        </div>
+        <button onclick="generarReporte()" class="mt-3 w-full bg-teal-600 text-white py-2 rounded-lg font-medium">Generar</button>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+          <div class="text-xs text-slate-500">Ventas</div>
+          <div class="text-xl font-bold" id="repTotalVentas">$0.00</div>
+        </div>
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+          <div class="text-xs text-slate-500">Ganancia</div>
+          <div class="text-xl font-bold text-emerald-600" id="repGanancia">$0.00</div>
+        </div>
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+          <div class="text-xs text-slate-500">Compras</div>
+          <div class="text-xl font-bold" id="repCompras">$0.00</div>
+        </div>
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+          <div class="text-xs text-slate-500">N° ventas</div>
+          <div class="text-xl font-bold" id="repNumVentas">0</div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+        <h3 class="font-semibold mb-2">Productos más vendidos</h3>
+        <div id="repTopProductos" class="space-y-2"></div>
+      </div>
+
+      <button onclick="exportarReporteCSV()" class="w-full bg-white border border-slate-300 py-3 rounded-xl font-medium flex items-center justify-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+        Exportar CSV
+      </button>
+    </section>
+
+  </main>
+
+  <!-- BOTTOM NAV -->
+  <nav class="fixed bottom-0 inset-x-0 bg-white border-t border-slate-200 z-30 safe-bottom">
+    <div class="grid grid-cols-5 gap-1 px-2 pt-2">
+      <button data-tab="dashboard" class="tab-btn flex flex-col items-center gap-0.5 py-1 text-[10px] text-slate-500">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+        Inicio
+      </button>
+      <button data-tab="catalogo" class="tab-btn flex flex-col items-center gap-0.5 py-1 text-[10px] text-slate-500">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/></svg>
+        Catálogo
+      </button>
+      <button data-tab="ventas" class="tab-btn flex flex-col items-center gap-0.5 py-1 text-[10px] text-slate-500">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+        Ventas
+      </button>
+      <button data-tab="inventario" class="tab-btn flex flex-col items-center gap-0.5 py-1 text-[10px] text-slate-500">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+        Inventario
+      </button>
+      <button data-tab="reportes" class="tab-btn flex flex-col items-center gap-0.5 py-1 text-[10px] text-slate-500">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16V8"/><path d="M12 16v-5"/><path d="M17 16v-2"/></svg>
+        Reportes
+      </button>
+    </div>
+  </nav>
+
+  <!-- MENU DROPDOWN -->
+  <div id="menuDrop" class="hidden fixed top-14 right-3 z-40 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 w-56">
+    <button class="menu-item w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-3" onclick="showView('compras'); cerrarMenu();">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/></svg>
+      Compras
+    </button>
+    <button class="menu-item w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-3" onclick="abrirConfig(); cerrarMenu();">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+      Configuración
+    </button>
+    <button class="menu-item w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-3" onclick="abrirRespaldo(); cerrarMenu();">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+      Respaldo / Drive
+    </button>
+    <div class="border-t border-slate-100 my-1"></div>
+    <button class="menu-item w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-3 text-red-600" onclick="cerrarSesion()">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+      Cerrar sesión
+    </button>
+  </div>
+
+  <!-- MODAL CONTAINER -->
+  <div id="modalContainer"></div>
+
+  <!-- TOAST -->
+  <div id="toast" class="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 hidden bg-slate-900 text-white px-4 py-2 rounded-full text-sm shadow-lg"></div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f766e"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#g)"/>
+  <g fill="none" stroke="white" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" transform="translate(128,128)">
+    <path d="M42 21 21 64v149a21 21 0 0 0 21 21h170a21 21 0 0 0 21-21V64L212 21Z"/>
+    <path d="M21 64h213"/>
+    <path d="M171 107a43 43 0 0 1-86 0"/>
+  </g>
+  <text x="256" y="448" font-family="system-ui, sans-serif" font-size="48" font-weight="700" fill="white" text-anchor="middle">Mi Tienda</text>
+</svg>
