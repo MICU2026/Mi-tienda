@@ -1,4 +1,4 @@
-const CACHE = 'micustore-v11';
+const CACHE = 'micustore-v12';
 const ASSETS = [
   './', './index.html', './app.js', './firebase-api.js',
   './manifest.webmanifest', './icon-192.svg', './icon-512.svg',
