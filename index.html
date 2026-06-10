@@ -3,23 +3,25 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-<meta name="theme-color" content="#0f766e" />
+<meta name="theme-color" content="#0a0a0a" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="mobile-web-app-capable" content="yes" />
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="icon" type="image/svg+xml" href="icon-192.svg" />
 <link rel="apple-touch-icon" href="icon-192.svg" />
-<title>Mi Tienda — Ventas e Inventario</title>
+<title>MICU Store — Ventas e Inventario</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script type="module" src="firebase-api.js"></script>
 <style>
   html, body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: contain; }
   body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
   .safe-bottom { padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); }
   .safe-top { padding-top: max(0.75rem, env(safe-area-inset-top)); }
-  .tab-active { color: #0f766e; }
-  .tab-active svg { stroke: #0f766e; }
+  .tab-active { color: #f59e0b; }
+  .tab-active svg { stroke: #0a0a0a; }
   .scroll-area { -webkit-overflow-scrolling: touch; }
   /* Hide number input spinners on mobile */
   input[type="number"]::-webkit-inner-spin-button,
@@ -33,34 +35,34 @@
   details > summary { list-style: none; cursor: pointer; }
   .badge { display: inline-flex; align-items: center; padding: 0.125rem 0.5rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; }
   .chip { display: inline-flex; align-items: center; padding: 0.25rem 0.625rem; border-radius: 9999px; font-size: 0.75rem; background: #f1f5f9; color: #334155; }
-  .chip-active { background: #0f766e; color: white; }
+  .chip-active { background: #0a0a0a; color: #fbbf24; }
   @media (max-width: 380px) { .text-responsive { font-size: 0.875rem; } }
 </style>
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen">
 
 <!-- ============================ LOGIN ============================ -->
-<div id="loginScreen" class="fixed inset-0 z-50 bg-gradient-to-br from-teal-600 to-emerald-700 flex flex-col items-center justify-center p-6 hidden">
+<div id="loginScreen" class="fixed inset-0 z-50 bg-gradient-to-br from-black via-neutral-900 to-neutral-800 flex flex-col items-center justify-center p-6 hidden">
   <div class="w-full max-w-sm">
     <div class="text-center mb-8">
       <div class="inline-block bg-white/20 rounded-2xl p-4 mb-3">
         <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
       </div>
-      <h1 class="text-3xl font-bold text-white">Mi Tienda</h1>
-      <p class="text-teal-100 text-sm mt-1">Ventas e inventario móvil</p>
+      <h1 class="text-3xl font-bold text-white">MICU Store</h1>
+      <p class="text-amber-100 text-sm mt-1">Ventas e inventario móvil</p>
     </div>
     <form id="loginForm" class="bg-white rounded-2xl shadow-xl p-6 space-y-4">
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Usuario</label>
-        <input type="text" id="loginUser" autocomplete="username" required class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 outline-none" placeholder="admin" />
+        <label class="block text-sm font-medium text-slate-700 mb-1">Correo electrónico</label>
+        <input type="email" id="loginUser" autocomplete="email" required class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-300 outline-none" placeholder="correo@ejemplo.com" />
       </div>
       <div>
         <label class="block text-sm font-medium text-slate-700 mb-1">Contraseña</label>
-        <input type="password" id="loginPass" autocomplete="current-password" required class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 outline-none" placeholder="••••••••" />
+        <input type="password" id="loginPass" autocomplete="current-password" required class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-300 outline-none" placeholder="••••••••" />
       </div>
       <div id="loginError" class="hidden text-red-600 text-sm bg-red-50 p-2 rounded-lg"></div>
-      <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-semibold py-3 rounded-xl transition">Ingresar</button>
-      <p class="text-xs text-slate-500 text-center pt-2">Primer ingreso: <b>admin</b> / <b>admin123</b><br/>(cambia la contraseña inmediatamente)</p>
+      <button type="submit" class="w-full bg-black hover:bg-slate-800 active:bg-slate-700 text-white font-semibold py-3 rounded-xl transition">Ingresar</button>
+      <p class="text-xs text-slate-500 text-center pt-2">Acceso con tu correo y contraseña.<br/>Si no tienes acceso, contacta al administrador.</p>
     </form>
   </div>
 </div>
@@ -72,13 +74,17 @@
   <header class="sticky top-0 z-30 bg-white border-b border-slate-200 safe-top">
     <div class="px-4 py-3 flex items-center justify-between">
       <div class="flex items-center gap-2">
-        <div class="w-9 h-9 bg-teal-600 rounded-xl flex items-center justify-center text-white">
+        <div class="w-9 h-9 bg-black rounded-xl flex items-center justify-center text-white">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
         </div>
         <div>
           <div id="topTitle" class="font-semibold text-slate-900 leading-tight">Dashboard</div>
           <div class="text-xs text-slate-500" id="topUser">—</div>
         </div>
+      </div>
+      <div id="syncBadge" class="hidden items-center gap-1 text-xs px-2 py-1 rounded-full bg-slate-100 mr-1">
+        <span id="syncDot" class="w-2 h-2 rounded-full bg-emerald-500"></span>
+        <span id="syncText">Sincronizado</span>
       </div>
       <button id="btnMenu" class="p-2 rounded-lg hover:bg-slate-100" aria-label="Menú">
         <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
@@ -135,11 +141,11 @@
       </div>
 
       <div class="grid grid-cols-2 gap-3">
-        <button onclick="showView('ventas'); abrirNuevaVenta();" class="bg-teal-600 hover:bg-teal-700 text-white py-4 rounded-2xl font-semibold flex items-center justify-center gap-2 shadow-sm">
+        <button onclick="showView('ventas'); abrirNuevaVenta();" class="bg-black hover:bg-slate-800 text-white py-4 rounded-2xl font-semibold flex items-center justify-center gap-2 shadow-sm">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
           Nueva venta
         </button>
-        <button onclick="showView('compras'); abrirNuevaCompra();" class="bg-white border-2 border-teal-600 text-teal-700 hover:bg-teal-50 py-4 rounded-2xl font-semibold flex items-center justify-center gap-2 shadow-sm">
+        <button onclick="showView('compras'); abrirNuevaCompra();" class="bg-white border-2 border-black text-amber-500 hover:bg-amber-50 py-4 rounded-2xl font-semibold flex items-center justify-center gap-2 shadow-sm">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
           Nueva compra
         </button>
@@ -150,10 +156,10 @@
     <section data-view="catalogo" class="view p-4 space-y-3 hidden">
       <div class="flex items-center gap-2">
         <div class="relative flex-1">
-          <input id="busquedaCatalogo" type="text" placeholder="Buscar producto o SKU..." class="w-full pl-10 pr-3 py-3 rounded-xl border border-slate-300 bg-white focus:border-teal-500 focus:ring-2 focus:ring-teal-200 outline-none" />
+          <input id="busquedaCatalogo" type="text" placeholder="Buscar producto o SKU..." class="w-full pl-10 pr-3 py-3 rounded-xl border border-slate-300 bg-white focus:border-amber-500 focus:ring-2 focus:ring-amber-300 outline-none" />
           <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
         </div>
-        <button onclick="abrirEditorProducto()" class="bg-teal-600 hover:bg-teal-700 text-white p-3 rounded-xl shadow-sm" aria-label="Nuevo producto">
+        <button id="btnNuevoProducto" onclick="abrirEditorProducto()" class="bg-black hover:bg-slate-800 text-white p-3 rounded-xl shadow-sm" aria-label="Nuevo producto">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
         </button>
       </div>
@@ -182,7 +188,7 @@
         </div>
       </div>
       <div class="flex gap-2">
-        <input id="busquedaInventario" type="text" placeholder="Buscar..." class="flex-1 px-3 py-2 rounded-xl border border-slate-300 bg-white outline-none focus:border-teal-500" />
+        <input id="busquedaInventario" type="text" placeholder="Buscar..." class="flex-1 px-3 py-2 rounded-xl border border-slate-300 bg-white outline-none focus:border-amber-500" />
         <select id="filtroEstadoInv" class="px-3 py-2 rounded-xl border border-slate-300 bg-white outline-none">
           <option value="todos">Todos</option>
           <option value="bajo">Stock bajo</option>
@@ -195,7 +201,7 @@
 
     <!-- COMPRAS -->
     <section data-view="compras" class="view p-4 space-y-3 hidden">
-      <button onclick="abrirNuevaCompra()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 shadow-sm">
+      <button onclick="abrirNuevaCompra()" class="w-full bg-black hover:bg-slate-800 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 shadow-sm">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
         Registrar nueva compra
       </button>
@@ -205,12 +211,44 @@
 
     <!-- VENTAS -->
     <section data-view="ventas" class="view p-4 space-y-3 hidden">
-      <button onclick="abrirNuevaVenta()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 shadow-sm">
+      <button onclick="abrirNuevaVenta()" class="w-full bg-black hover:bg-slate-800 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 shadow-sm">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
         Nueva venta
       </button>
       <h3 class="font-semibold text-slate-700 mt-2">Ventas recientes</h3>
       <div id="listaVentas" class="space-y-2"></div>
+    </section>
+
+    <!-- CLIENTES -->
+    <section data-view="clientes" class="view p-4 space-y-3 hidden">
+      <div class="flex items-center gap-2">
+        <div class="relative flex-1">
+          <input id="busquedaClientes" type="text" placeholder="Buscar cliente..." class="w-full pl-10 pr-3 py-3 rounded-xl border border-slate-300 bg-white focus:border-amber-500 focus:ring-2 focus:ring-amber-300 outline-none" />
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        </div>
+        <button onclick="abrirEditorCliente()" class="bg-black hover:bg-slate-800 text-white p-3 rounded-xl shadow-sm" aria-label="Nuevo cliente">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+        </button>
+      </div>
+      <div id="statsClientes" class="grid grid-cols-3 gap-2">
+        <div class="bg-white rounded-xl p-3 border border-slate-100">
+          <div class="text-xs text-slate-500">Clientes</div>
+          <div class="font-bold text-lg" id="cliTotal">0</div>
+        </div>
+        <div class="bg-white rounded-xl p-3 border border-slate-100">
+          <div class="text-xs text-slate-500">Con crédito</div>
+          <div class="font-bold text-lg text-amber-600" id="cliConCredito">0</div>
+        </div>
+        <div class="bg-white rounded-xl p-3 border border-slate-100">
+          <div class="text-xs text-slate-500">Por cobrar</div>
+          <div class="font-bold text-lg text-amber-600" id="cliTotalCredito">$0</div>
+        </div>
+      </div>
+      <div id="listaClientes" class="space-y-2"></div>
+      <div id="vacioClientes" class="hidden text-center py-16 text-slate-500">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-2 opacity-50"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <p>Sin clientes aún. Toca <b>+</b> para agregar el primero.</p>
+      </div>
     </section>
 
     <!-- REPORTES -->
@@ -227,7 +265,7 @@
             <input type="date" id="repHasta" class="w-full px-3 py-2 rounded-lg border border-slate-300" />
           </div>
         </div>
-        <button onclick="generarReporte()" class="mt-3 w-full bg-teal-600 text-white py-2 rounded-lg font-medium">Generar</button>
+        <button onclick="generarReporte()" class="mt-3 w-full bg-black text-white py-2 rounded-lg font-medium">Generar</button>
       </div>
 
       <div class="grid grid-cols-2 gap-3">
@@ -294,12 +332,24 @@
       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/></svg>
       Compras
     </button>
+    <button class="menu-item w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-3" onclick="abrirCatalogoCliente(); cerrarMenu();">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      Catálogo para clientes
+    </button>
+    <button class="menu-item w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-3" onclick="showView('clientes'); cerrarMenu();">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Clientes
+    </button>
+    <button class="menu-item w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-3" onclick="abrirCreditos(); cerrarMenu();">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Créditos pendientes
+    </button>
     <button class="menu-item w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-3" onclick="abrirConfig(); cerrarMenu();">
       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
       Configuración
     </button>
     <button class="menu-item w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-3" onclick="abrirRespaldo(); cerrarMenu();">
-      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
       Respaldo / Drive
     </button>
     <div class="border-t border-slate-100 my-1"></div>
@@ -309,13 +359,14 @@
     </button>
   </div>
 
-  <!-- MODAL CONTAINER -->
   <div id="modalContainer"></div>
 
-  <!-- TOAST -->
   <div id="toast" class="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 hidden bg-slate-900 text-white px-4 py-2 rounded-full text-sm shadow-lg"></div>
 </div>
 
 <script src="app.js"></script>
+</body>
+</html>
+ript>
 </body>
 </html>
