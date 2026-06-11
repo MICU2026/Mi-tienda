@@ -179,7 +179,8 @@ function entrarApp() {
   const menuItems = document.querySelectorAll('#menuDrop .menu-item');
   menuItems.forEach(item => {
     const txt = item.textContent.trim();
-    if (!esAdmin && (txt.includes('Compras') || txt.includes('Configuración') || txt.includes('Respaldo'))) {
+    const esAdminItem = item.classList.contains('menu-item-admin');
+    if (!esAdmin && (txt.includes('Compras') || txt.includes('Configuración') || txt.includes('Respaldo') || txt.includes('Cerrar período') || esAdminItem)) {
       item.style.display = 'none';
     } else {
       item.style.display = '';
@@ -2144,6 +2145,16 @@ async function abrirConfig() {
         </details>
 
         <details>
+          <summary class="font-semibold text-sm py-2">PIN de Cerrar período</summary>
+          <div class="mt-2 space-y-2">
+            <p class="text-xs text-slate-500">Cambia el PIN de 4 dígitos que protege la función Cerrar período.</p>
+            <button onclick="cerrarModal(); setTimeout(mostrarCambiarPIN, 100);" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-lg text-sm font-medium">
+              Cambiar PIN de cierre
+            </button>
+          </div>
+        </details>
+
+        <details>
           <summary class="font-semibold text-sm py-2">Cambiar mi contraseña</summary>
           <div class="mt-2 space-y-2">
             <input type="password" id="passActual" placeholder="Actual" class="w-full px-3 py-2 border rounded-lg text-sm" />
@@ -2387,6 +2398,336 @@ async function borrarTodo() {
   localStorage.clear();
   toast('Datos eliminados. Reiniciando...');
   setTimeout(() => location.reload(), 1500);
+}
+
+// --------------------- CERRAR PERÍODO --------------------
+async function abrirCerrarPeriodo() {
+  if (!state.user || state.user.rol !== 'admin') { toast('Solo el administrador puede hacer esto'); return; }
+
+  // Verificar si hay PIN configurado
+  const pinConfig = await getOne('config', 'pin_cierre');
+  if (!pinConfig || !pinConfig.valor) {
+    // No hay PIN — pedir que configure uno primero
+    mostrarConfigurarPIN();
+    return;
+  }
+
+  // Hay PIN — pedirlo antes de mostrar la pantalla de cierre
+  mostrarIngresarPIN(async () => {
+    await mostrarPantallaCierre();
+  });
+}
+
+function mostrarConfigurarPIN() {
+  const html = `
+  <div class="fixed inset-0 z-40 bg-black/40 modal-backdrop flex items-end sm:items-center justify-center" onclick="cerrarModal(event)">
+    <div class="modal-sheet bg-white w-full sm:max-w-sm sm:rounded-2xl rounded-t-3xl" onclick="event.stopPropagation()">
+      <div class="sticky top-0 bg-white border-b px-4 py-3 flex items-center justify-between">
+        <h3 class="font-semibold">Configurar PIN de seguridad</h3>
+        <button onclick="cerrarModal()" class="p-1.5 hover:bg-slate-100 rounded-lg">&times;</button>
+      </div>
+      <div class="p-5 space-y-4">
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-900">
+          La función <b>Cerrar período</b> requiere un PIN de 4 dígitos. Configúralo ahora — solo tú lo sabrás.
+        </div>
+        <div>
+          <label class="text-xs text-slate-500 block mb-1">Nuevo PIN (4 dígitos)</label>
+          <input id="pinNuevo1" type="password" inputmode="numeric" maxlength="4" pattern="[0-9]{4}"
+            placeholder="••••"
+            class="w-full text-center text-2xl tracking-widest px-3 py-3 rounded-xl border border-slate-300 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200" />
+        </div>
+        <div>
+          <label class="text-xs text-slate-500 block mb-1">Confirmar PIN</label>
+          <input id="pinNuevo2" type="password" inputmode="numeric" maxlength="4" pattern="[0-9]{4}"
+            placeholder="••••"
+            class="w-full text-center text-2xl tracking-widest px-3 py-3 rounded-xl border border-slate-300 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200" />
+        </div>
+        <div id="pinConfigError" class="hidden text-red-600 text-sm bg-red-50 p-2 rounded-lg text-center"></div>
+        <button onclick="guardarPINcierre()" class="w-full bg-black hover:bg-slate-800 text-white font-bold py-3 rounded-xl">
+          Guardar PIN
+        </button>
+      </div>
+    </div>
+  </div>`;
+  abrirModal(html);
+  setTimeout(() => document.getElementById('pinNuevo1')?.focus(), 100);
+}
+
+async function guardarPINcierre() {
+  const p1 = document.getElementById('pinNuevo1')?.value.trim();
+  const p2 = document.getElementById('pinNuevo2')?.value.trim();
+  const errEl = document.getElementById('pinConfigError');
+  const mostrarError = (msg) => { errEl.textContent = msg; errEl.classList.remove('hidden'); };
+  errEl.classList.add('hidden');
+
+  if (!/^\d{4}$/.test(p1)) { mostrarError('El PIN debe ser exactamente 4 dígitos numéricos.'); return; }
+  if (p1 !== p2) { mostrarError('Los PINs no coinciden. Inténtalo de nuevo.'); return; }
+
+  const hash = await hashPass('PIN_CIERRE_' + p1);
+  await put('config', { clave: 'pin_cierre', valor: hash });
+  cerrarModal();
+  toast('PIN configurado. Ahora puedes usar Cerrar período.');
+}
+
+function mostrarIngresarPIN(onExito) {
+  let intentos = 0;
+  const MAX_INTENTOS = 3;
+
+  const html = `
+  <div class="fixed inset-0 z-40 bg-black/40 modal-backdrop flex items-end sm:items-center justify-center" onclick="cerrarModal(event)">
+    <div class="modal-sheet bg-white w-full sm:max-w-sm sm:rounded-2xl rounded-t-3xl" onclick="event.stopPropagation()">
+      <div class="sticky top-0 bg-white border-b px-4 py-3 flex items-center justify-between">
+        <h3 class="font-semibold">🔐 Ingresa tu PIN</h3>
+        <button onclick="cerrarModal()" class="p-1.5 hover:bg-slate-100 rounded-lg">&times;</button>
+      </div>
+      <div class="p-5 space-y-4">
+        <p class="text-sm text-slate-600 text-center">Ingresa el PIN de 4 dígitos para acceder a <b>Cerrar período</b>.</p>
+        <input id="pinIngresado" type="password" inputmode="numeric" maxlength="4" pattern="[0-9]{4}"
+          placeholder="••••"
+          class="w-full text-center text-3xl tracking-widest px-3 py-4 rounded-xl border-2 border-slate-300 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+          onkeydown="if(event.key==='Enter') verificarPINcierre()" />
+
+        <!-- Teclado numérico visual -->
+        <div class="grid grid-cols-3 gap-2 mt-2">
+          ${[1,2,3,4,5,6,7,8,9,'',0,'⌫'].map(n => `
+            <button onclick="${n === '⌫' ? "let el=document.getElementById('pinIngresado'); el.value=el.value.slice(0,-1);" : n === '' ? '' : `let el=document.getElementById('pinIngresado'); if(el.value.length<4) el.value+=\'${n}\';`}"
+              class="py-3 rounded-xl text-xl font-semibold ${n === '' ? 'invisible' : 'bg-slate-100 hover:bg-slate-200 active:bg-slate-300'}"
+              ${n === '' ? 'disabled' : ''}>
+              ${n}
+            </button>`).join('')}
+        </div>
+
+        <div id="pinLoginError" class="hidden text-red-600 text-sm bg-red-50 p-2 rounded-lg text-center"></div>
+        <button onclick="verificarPINcierre()" class="w-full bg-black hover:bg-slate-800 text-white font-bold py-3 rounded-xl">
+          Confirmar
+        </button>
+        <button onclick="mostrarCambiarPIN()" class="w-full text-xs text-slate-400 hover:text-slate-600 py-1">
+          ¿Olvidaste el PIN? Cambiar PIN (requiere contraseña de admin)
+        </button>
+      </div>
+    </div>
+  </div>`;
+  abrirModal(html);
+  setTimeout(() => document.getElementById('pinIngresado')?.focus(), 100);
+
+  // Guardar callback en window para acceso desde verificarPINcierre
+  window._pinCallback = onExito;
+  window._pinIntentos = 0;
+}
+
+async function verificarPINcierre() {
+  const pin = document.getElementById('pinIngresado')?.value.trim();
+  const errEl = document.getElementById('pinLoginError');
+  errEl.classList.add('hidden');
+
+  if (!/^\d{4}$/.test(pin)) {
+    errEl.textContent = 'Ingresa los 4 dígitos del PIN.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  const hash = await hashPass('PIN_CIERRE_' + pin);
+  const pinConfig = await getOne('config', 'pin_cierre');
+
+  if (pinConfig && pinConfig.valor === hash) {
+    window._pinIntentos = 0;
+    cerrarModal();
+    if (window._pinCallback) window._pinCallback();
+  } else {
+    window._pinIntentos = (window._pinIntentos || 0) + 1;
+    document.getElementById('pinIngresado').value = '';
+    const restantes = 3 - window._pinIntentos;
+    if (restantes <= 0) {
+      cerrarModal();
+      toast('Demasiados intentos incorrectos. Intenta más tarde.');
+      return;
+    }
+    errEl.textContent = `PIN incorrecto. ${restantes} intento${restantes === 1 ? '' : 's'} restante${restantes === 1 ? '' : 's'}.`;
+    errEl.classList.remove('hidden');
+  }
+}
+
+function mostrarCambiarPIN() {
+  const html = `
+  <div class="fixed inset-0 z-40 bg-black/40 modal-backdrop flex items-end sm:items-center justify-center" onclick="cerrarModal(event)">
+    <div class="modal-sheet bg-white w-full sm:max-w-sm sm:rounded-2xl rounded-t-3xl" onclick="event.stopPropagation()">
+      <div class="sticky top-0 bg-white border-b px-4 py-3 flex items-center justify-between">
+        <h3 class="font-semibold">Cambiar PIN de cierre</h3>
+        <button onclick="cerrarModal()" class="p-1.5 hover:bg-slate-100 rounded-lg">&times;</button>
+      </div>
+      <div class="p-5 space-y-3">
+        <p class="text-sm text-slate-600">Ingresa tu contraseña de administrador para establecer un nuevo PIN.</p>
+        <input id="cambiarPinPass" type="password" placeholder="Contraseña actual de admin"
+          class="w-full px-3 py-2.5 rounded-xl border border-slate-300 outline-none focus:border-amber-500" />
+        <input id="cambiarPinNuevo1" type="password" inputmode="numeric" maxlength="4" placeholder="Nuevo PIN (4 dígitos)"
+          class="w-full text-center text-2xl tracking-widest px-3 py-3 rounded-xl border border-slate-300 outline-none focus:border-amber-500" />
+        <input id="cambiarPinNuevo2" type="password" inputmode="numeric" maxlength="4" placeholder="Confirmar nuevo PIN"
+          class="w-full text-center text-2xl tracking-widest px-3 py-3 rounded-xl border border-slate-300 outline-none focus:border-amber-500" />
+        <div id="cambiarPinError" class="hidden text-red-600 text-sm bg-red-50 p-2 rounded-lg text-center"></div>
+        <button onclick="ejecutarCambiarPIN()" class="w-full bg-black hover:bg-slate-800 text-white font-bold py-3 rounded-xl">
+          Guardar nuevo PIN
+        </button>
+      </div>
+    </div>
+  </div>`;
+  abrirModal(html);
+}
+
+async function ejecutarCambiarPIN() {
+  const pass = document.getElementById('cambiarPinPass')?.value;
+  const p1 = document.getElementById('cambiarPinNuevo1')?.value.trim();
+  const p2 = document.getElementById('cambiarPinNuevo2')?.value.trim();
+  const errEl = document.getElementById('cambiarPinError');
+  const mostrarError = (msg) => { errEl.textContent = msg; errEl.classList.remove('hidden'); };
+  errEl.classList.add('hidden');
+
+  if (!pass) { mostrarError('Ingresa tu contraseña de administrador.'); return; }
+  if (!/^\d{4}$/.test(p1)) { mostrarError('El nuevo PIN debe ser exactamente 4 dígitos.'); return; }
+  if (p1 !== p2) { mostrarError('Los PINs no coinciden.'); return; }
+
+  try {
+    // Reautenticar con la contraseña actual para verificar identidad
+    await window.FB.changeMyPassword(pass, pass); // trick: cambia a la misma → falla si pass es incorrecta
+  } catch (e) {
+    if (!e.message.includes('requires-recent-login') && !e.message.includes('same')) {
+      mostrarError('Contraseña incorrecta: ' + e.message);
+      return;
+    }
+  }
+
+  const hash = await hashPass('PIN_CIERRE_' + p1);
+  await put('config', { clave: 'pin_cierre', valor: hash });
+  cerrarModal();
+  toast('PIN actualizado correctamente.');
+}
+
+async function mostrarPantallaCierre() {
+  const totalVentas = state.ventas.length;
+  const totalCompras = state.compras.length;
+  const totalMovimientos = (await getAll('movimientos')).length;
+  const totalProductos = state.productos.filter(p => p.activo !== false).length;
+
+  const productosHtml = state.productos
+    .filter(p => p.activo !== false)
+    .sort((a, b) => a.nombre.localeCompare(b.nombre))
+    .map(p => `
+      <div class="flex items-center gap-2 py-2 border-b border-slate-100 last:border-0">
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-medium truncate">${esc(p.nombre)}</div>
+          <div class="text-xs text-slate-400">Stock actual: ${p.stock || 0} ud</div>
+        </div>
+        <input type="number" min="0" id="stockReset_${p.id}"
+          value="${p.stock || 0}"
+          class="w-20 px-2 py-1.5 border border-slate-300 rounded-lg text-sm text-right" />
+      </div>`).join('');
+
+
+  const html = `
+  <div class="fixed inset-0 z-40 bg-black/40 modal-backdrop flex items-end sm:items-center justify-center" onclick="cerrarModal(event)">
+    <div class="modal-sheet bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-3xl max-h-[92vh] overflow-y-auto" onclick="event.stopPropagation()">
+      <div class="sticky top-0 bg-white border-b px-4 py-3 flex items-center justify-between">
+        <h3 class="font-semibold">Cerrar período / Reiniciar</h3>
+        <button onclick="cerrarModal()" class="p-1.5 hover:bg-slate-100 rounded-lg">&times;</button>
+      </div>
+      <div class="p-4 space-y-4">
+
+        <div class="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-800">
+          <div class="font-bold mb-1">⚠ Acción irreversible</div>
+          <p>Se eliminarán permanentemente de Firestore:</p>
+          <ul class="list-disc pl-4 mt-1 space-y-0.5 text-xs">
+            <li><b>${totalVentas}</b> venta${totalVentas !== 1 ? 's' : ''}</li>
+            <li><b>${totalCompras}</b> compra${totalCompras !== 1 ? 's' : ''}</li>
+            <li><b>${totalMovimientos}</b> movimiento${totalMovimientos !== 1 ? 's' : ''} de inventario</li>
+          </ul>
+          <p class="mt-2 font-semibold">Recomendación: exporta un respaldo antes de continuar.</p>
+        </div>
+
+        <button onclick="abrirRespaldo()" class="w-full bg-white border border-slate-300 hover:bg-slate-50 py-2.5 rounded-xl text-sm font-medium flex items-center justify-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+          Exportar respaldo ahora (recomendado)
+        </button>
+
+        <details open>
+          <summary class="font-semibold text-sm py-2 cursor-pointer flex items-center justify-between">
+            <span>Ajustar stock inicial de los ${totalProductos} productos</span>
+            <span class="text-xs text-slate-400 font-normal">Toca para editar</span>
+          </summary>
+          <div class="mt-2 bg-slate-50 rounded-xl p-3 max-h-64 overflow-y-auto">
+            <div class="text-xs text-slate-500 mb-2 italic">Puedes dejar el stock actual o cambiarlo al valor con que quieres empezar el nuevo período.</div>
+            ${productosHtml || '<div class="text-sm text-slate-500">Sin productos activos.</div>'}
+          </div>
+          <button onclick="rellenarStockDesdeCompras()" class="mt-2 w-full text-xs bg-amber-50 border border-amber-200 text-amber-800 py-2 rounded-lg hover:bg-amber-100">
+            ↺ Usar stock calculado desde compras pendientes
+          </button>
+        </details>
+
+        <div class="bg-slate-50 rounded-xl p-3 text-xs text-slate-600 space-y-1">
+          <div class="font-semibold text-sm text-slate-800 mb-1">¿Qué hace exactamente esta operación?</div>
+          <div>✓ Borra todas las <b>ventas</b>, <b>compras</b> y <b>movimientos</b></div>
+          <div>✓ Actualiza el stock de cada producto al valor que definas arriba</div>
+          <div>✓ Mantiene intacto el catálogo, categorías, clientes y usuarios</div>
+          <div>✗ No borra la información de tu negocio ni la configuración</div>
+        </div>
+
+        <div class="space-y-2">
+          <label class="text-xs text-slate-500">Escribe <b>CERRAR</b> para confirmar</label>
+          <input id="confirmCierre" placeholder="CERRAR" class="w-full px-3 py-2 rounded-lg border border-slate-300 font-mono text-center tracking-widest uppercase" oninput="document.getElementById('btnEjecutarCierre').disabled = this.value.trim() !== 'CERRAR'" />
+        </div>
+
+        <button id="btnEjecutarCierre" disabled onclick="ejecutarCierrePeriodo()" class="w-full bg-red-600 hover:bg-red-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl">
+          Cerrar período y reiniciar inventario
+        </button>
+
+      </div>
+    </div>
+  </div>`;
+  abrirModal(html);
+}
+
+async function ejecutarCierrePeriodo() {
+  const confirm1 = document.getElementById('confirmCierre');
+  if (!confirm1 || confirm1.value.trim() !== 'CERRAR') { toast('Debes escribir CERRAR para confirmar'); return; }
+
+  const btn = document.getElementById('btnEjecutarCierre');
+  btn.disabled = true;
+  btn.textContent = 'Procesando...';
+
+  try {
+    toast('Eliminando ventas...');
+    const ventas = await getAll('ventas');
+    for (const v of ventas) await del('ventas', v.id);
+
+    toast('Eliminando compras...');
+    const compras = await getAll('compras');
+    for (const c of compras) await del('compras', c.id);
+
+    toast('Eliminando movimientos...');
+    const movimientos = await getAll('movimientos');
+    for (const m of movimientos) await del('movimientos', m.id);
+
+    toast('Actualizando inventario...');
+    const productosActivos = state.productos.filter(p => p.activo !== false);
+    for (const p of productosActivos) {
+      const input = document.getElementById('stockReset_' + p.id);
+      const nuevoStock = input ? (parseInt(input.value) || 0) : (p.stock || 0);
+      if (nuevoStock !== p.stock) {
+        p.stock = nuevoStock;
+        p.actualizado = Date.now();
+        await put('productos', p);
+      }
+    }
+
+    await cargarTodo();
+    cerrarModal();
+    showView('dashboard');
+    toast('✓ Período cerrado. Inventario reiniciado correctamente.');
+
+  } catch (err) {
+    console.error('Error en cierre de período:', err);
+    toast('Error: ' + err.message);
+    btn.disabled = false;
+    btn.textContent = 'Cerrar período y reiniciar inventario';
+  }
 }
 
 // --------------------- CATÁLOGO PARA CLIENTES -------------
